@@ -1,0 +1,118 @@
+%Top Level Module
+module cruiseControl:
+
+%Pedal Interface
+input Accel1: float;
+input Brake1: float;
+
+output accelPressed1;
+output  brakePressed1;
+
+%Speed Monitor Interface
+input Speed1 :float;
+output speedWarning1;
+
+%FSM Interface
+input On1;
+input Off1;
+output CruiseState1:integer;
+
+run pedal[  
+    signal Accel1/Accel;
+    signal Brake1/Brake;
+    signal accelPressed1/accelPressed;
+    signal brakePressed1/brakePressed]
+
+||
+
+run speedMonitor[  
+    signal Speed1/Speed;
+    signal speedWarning1/speedWarning
+]
+
+||
+
+run FSM[
+    signal On1/On;
+    signal Off1/Off;
+    signal CruiseState1/CruiseState
+]
+end module
+
+%-----------------------------------------------------------------------------------------------------
+
+%Pedal Module 
+%Checks if a pedal is considered to be pressed 
+module pedal:
+
+%Pedal Threshold
+constant pedalsMin = 3.0f        : float;
+
+%Pedal Interface declarations
+input Accel: float;
+input Brake: float;
+output accelPressed;
+output  brakePressed;
+loop
+    [
+    await Accel;
+    if ?Accel > pedalsMin then
+        emit accelPressed;
+    end if;
+    ]
+    ||
+    [
+    await Brake;
+    if ?Brake > pedalsMin then
+        emit brakePressed;
+    end if;
+    ]
+end loop
+end module
+
+%-----------------------------------------------------------------------------------------------------
+
+%Speed Monitor Module
+module speedMonitor:
+constant speedMin = 30.0f      : float;
+constant speedMax = 150.0f      : float;
+
+input Speed :float;
+output speedWarning;
+loop
+    await Speed;
+    if ?Speed < speedMin or ?Speed > speedMax then
+        emit speedWarning;
+    end if;
+end loop
+end module
+
+%-----------------------------------------------------------------------------------------------------
+
+%FSM Module
+%state 1 = off, state 2 = on, state 3 = stdby, state 4 = disable
+
+module FSM:
+    input On;
+    input Off;
+
+    output CruiseState: integer;
+    loop
+        pause;
+        var state := 1 : integer in
+            present On then
+                state := 2;
+                emit CruiseState(state);
+                
+            end present;
+
+            present Off then
+                state := 1;
+                emit CruiseState(state);
+            end present;
+
+
+        end var
+    end loop
+
+end module
