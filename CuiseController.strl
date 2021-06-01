@@ -20,3 +20,20 @@ output cruiseSpeed,throttleCmd: float;
 output cruiseState : states;
 
 end module;
+
+%pedal module
+module pedal
+input accel,brake: float;
+output accelPressed, brakePressed;
+
+constant pedalsMin : float = 3.0;
+
+if accelPressed >= pedalsMin then
+    emit accelPressed;
+end if;
+
+if brakePressed >= pedalsMin then
+    emit brakePressed;
+end if
+
+end module
