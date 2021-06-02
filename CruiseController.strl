@@ -11,11 +11,19 @@ output  brakePressed1;
 %Speed Monitor Interface
 input Speed1 :float;
 output speedWarning1;
+output warningType1 : integer;
 
 %FSM Interface
 input On1;
 input Off1;
+input Resume1;
 output CruiseState1:integer;
+
+%CruiseSpeed Interface
+input Set1;
+input QuickAccel1;
+input QuickDecel1;
+output CruiseSpeed1:float;
 
 run pedal[  
     signal Accel1/Accel;
@@ -27,7 +35,8 @@ run pedal[
 
 run speedMonitor[  
     signal Speed1/Speed;
-    signal speedWarning1/speedWarning
+    signal speedWarning1/speedWarning;
+    signal warningType1/warningType
 ]
 
 ||
@@ -35,8 +44,26 @@ run speedMonitor[
 run FSM[
     signal On1/On;
     signal Off1/Off;
+    signal Resume1/Resume;
+    signal accelPressed1/accelPressed;
+    signal speedWarning1/speedWarning;
+    signal brakePressed1/brakePressed;
     signal CruiseState1/CruiseState
 ]
+
+||
+
+run cruiseSpeed[
+    signal On1/On;
+    signal Set1/Set;
+    signal Speed1/Speed;
+    signal QuickAccel1/QuickAccel;
+    signal QuickDecel1/QuickDecel;
+    signal warningType1/warningType;
+    signal CruiseState1/CruiseState;
+    signal CruiseSpeed1/CruiseSpeed
+]
+
 end module
 
 %-----------------------------------------------------------------------------------------------------
@@ -54,19 +81,16 @@ input Brake: float;
 output accelPressed;
 output  brakePressed;
 loop
-    [
-    await Accel;
+
+    pause;
+
     if ?Accel > pedalsMin then
         emit accelPressed;
-    end if;
-    ]
-    ||
-    [
-    await Brake;
-    if ?Brake > pedalsMin then
+
+    elsif ?Brake > pedalsMin then
         emit brakePressed;
     end if;
-    ]
+
 end loop
 end module
 
@@ -79,14 +103,111 @@ constant speedMax = 150.0f      : float;
 
 input Speed :float;
 output speedWarning;
-loop
-    await Speed;
-    if ?Speed < speedMin or ?Speed > speedMax then
-        emit speedWarning;
-    end if;
-end loop
+output warningType : integer;
+
+var warning := 0 : integer in
+    loop
+        await Speed;
+
+        %Below lower speed threshold
+        if ?Speed < speedMin then
+            warning := 1;
+            
+        %Above higher speed threshold
+        elsif ?Speed > speedMax then
+            warning := 2;
+
+        else
+            warning := 0;
+        end if;
+        
+        if (warning > 0) then
+            emit speedWarning;
+        end if;
+
+        emit warningType(warning)
+
+    end loop
+end var;
 end module
 
+%-----------------------------------------------------------------------------------------------------
+
+module cruiseSpeed:
+
+    %module interface
+    input On;
+    input Set;
+    input Speed : float;
+    input QuickAccel;
+    input QuickDecel;    
+    input warningType: integer;
+    input CruiseState: integer;
+
+    output CruiseSpeed : float;
+
+    %constant declaration
+    constant speedMin = 30.0f      : float;
+    constant speedMax = 150.0f      : float;
+    constant SpeedInc = 2.5f        : float;
+
+    var CruiseActive := false : boolean in
+    
+        loop
+            await CruiseState;
+            if ?CruiseState = 2 then
+                if ?warningType = 1 then
+                    emit CruiseSpeed(speedMin);
+                elsif ?warningType = 2 then
+                    emit CruiseSpeed(speedMax);
+                else
+                    emit CruiseSpeed(?Speed);
+                end if;
+                trap T in
+                    loop
+                        pause;
+
+                        %Cruise Control not managed in OFF state
+                        if ?CruiseState = 1 then
+                            exit T;
+                        end if;
+
+                        %Set Cruise Speed to current speed
+
+                        present Set then
+                            if ?warningType = 1 then
+                                emit CruiseSpeed(speedMin);
+                            elsif ?warningType = 2 then
+                                emit CruiseSpeed(speedMax);
+                            else
+                                emit CruiseSpeed(?Speed);
+                            end if;
+                        end present;
+
+                        present QuickAccel then
+                            if (pre(?CruiseSpeed) + SpeedInc) > speedMax then
+                                emit CruiseSpeed(speedMax);
+                            else
+                                emit CruiseSpeed(pre(?CruiseSpeed) + SpeedInc);
+                            end if; 
+                        end present;
+
+                        present QuickDecel then
+                            if (pre(?CruiseSpeed) - SpeedInc) < speedMin then
+                                emit CruiseSpeed(speedMin);
+                            else
+                                emit CruiseSpeed(pre(?CruiseSpeed) - SpeedInc);
+                            end if; 
+                        end present;
+
+                    end loop
+
+                end trap
+            end if;
+        end loop;
+    end var
+
+end module
 %-----------------------------------------------------------------------------------------------------
 
 %FSM Module
@@ -95,24 +216,69 @@ end module
 module FSM:
     input On;
     input Off;
+    input Resume;
+    input accelPressed;
+    input speedWarning;
+    input brakePressed;
 
-    output CruiseState: integer;
-    loop
-        pause;
-        var state := 1 : integer in
-            present On then
-                state := 2;
-                emit CruiseState(state);
-                
-            end present;
+    output CruiseState : integer;
+    emit CruiseState(1);
+    var state := 1 : integer in
 
-            present Off then
-                state := 1;
-                emit CruiseState(state);
-            end present;
+        loop
+            pause;
+            
+                present
 
+                    % case any state to Off
+                    case [Off] do
+                        state := 1;
+                        emit CruiseState(state);
 
+                    % case Off to On
+                    case [On] do 
+                        if state = 1 then
+                            state := 2;
+                            emit CruiseState(state);
+                        end if
+                    
+                    % case Standby to On
+                    case [Resume and not accelPressed and not speedWarning] do
+                        if state = 3 then
+                            state := 2;
+                            emit CruiseState(state);
+                        end if
+
+                    % case Standby to Disable
+                    case [Resume and (accelPressed or speedWarning)] do
+                        if state = 3 then
+                            state := 4;
+                            emit CruiseState(state);
+                        end if
+
+                    % case On to Standby
+                    case [brakePressed] do
+                        if state = 2 then
+                            state := 3;
+                            emit CruiseState(state);
+                        end if
+
+                    % case Disable to On
+                    case [not accelPressed and not speedWarning] do
+                        if state = 4 then
+                            state := 2;
+                            emit CruiseState(state);
+                        end if
+
+                    % case On to Disable
+                    case [accelPressed or speedWarning] do
+                        if state = 2 then
+                            state := 4;
+                            emit CruiseState(state);
+                        end if
+                        
+                    end present
+    
+        end loop
         end var
-    end loop
-
 end module
