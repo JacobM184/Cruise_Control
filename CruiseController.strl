@@ -182,7 +182,7 @@ module cruiseSpeed:
     
         loop
             pause;
-            if pre(?CruiseState) = 2 then
+            if ?CruiseState = 2 then
                 if ?warningType = 1 then
                     emit CruiseSpeed(speedMin);
                 elsif ?warningType = 2 then
@@ -257,7 +257,7 @@ var vroom := 0.0f : float in
             vroom := regulateThrottle(true, ?CruiseSpeed, ?Speed);
             emit ThrottleCmd(vroom);
         else
-            emit ThrottleCmd(pre(?Accel));
+            emit ThrottleCmd(?Accel);
         end if;
             
     end loop;
