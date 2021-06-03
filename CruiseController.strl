@@ -2,16 +2,16 @@
 module cruiseControl:
 
 %Pedal Interface
-input Accel1: float;
-input Brake1: float;
+input Accel1 := 0.0f: float;
+input Brake1 := 0.0f: float;
 
 output accelPressed1;
 output  brakePressed1;
 
 %Speed Monitor Interface
-input Speed1 :float;
+input Speed1 := 0.0f :float;
 output speedWarning1;
-output warningType1 : integer;
+output warningType1 :=0 : integer;
 
 %FSM Interface
 input On1;
@@ -23,11 +23,16 @@ output CruiseState1:integer;
 input Set1;
 input QuickAccel1;
 input QuickDecel1;
-output CruiseSpeed1:float;
+output CruiseSpeed1 := 0.0f:float;
+
+%Cruise Regulation Interface
+output ThrottleCmd1 := 0.0f:float;
 
 run pedal[  
     signal Accel1/Accel;
     signal Brake1/Brake;
+    signal CruiseState1/CruiseState;
+    signal ThrottleCmd1/ThrottleCmd;
     signal accelPressed1/accelPressed;
     signal brakePressed1/brakePressed]
 
@@ -64,6 +69,17 @@ run cruiseSpeed[
     signal CruiseSpeed1/CruiseSpeed
 ]
 
+||
+
+
+run cruiseRegulation[
+    signal CruiseState1/CruiseState;
+    signal Speed1/Speed;
+    signal CruiseSpeed1/CruiseSpeed;
+    signal Accel1/Accel;
+    signal ThrottleCmd1/ThrottleCmd
+]
+
 end module
 
 %-----------------------------------------------------------------------------------------------------
@@ -78,17 +94,28 @@ constant pedalsMin = 3.0f        : float;
 %Pedal Interface declarations
 input Accel: float;
 input Brake: float;
+input CruiseState : integer;
+input ThrottleCmd : float;
+
 output accelPressed;
-output  brakePressed;
+output brakePressed;
 loop
 
     pause;
+    if pre(?CruiseState) = 2 then 
+        if pre(?ThrottleCmd) > pedalsMin then
+            emit accelPressed;
+        elsif ?Brake > pedalsMin then
+            emit brakePressed;
+        end if;
+    else
+        if ?Accel > pedalsMin then
+            emit accelPressed;
 
-    if ?Accel > pedalsMin then
-        emit accelPressed;
+        elsif ?Brake > pedalsMin then
+            emit brakePressed;
 
-    elsif ?Brake > pedalsMin then
-        emit brakePressed;
+        end if;
     end if;
 
 end loop
@@ -154,8 +181,8 @@ module cruiseSpeed:
     var CruiseActive := false : boolean in
     
         loop
-            await CruiseState;
-            if ?CruiseState = 2 then
+            pause;
+            if pre(?CruiseState) = 2 then
                 if ?warningType = 1 then
                     emit CruiseSpeed(speedMin);
                 elsif ?warningType = 2 then
@@ -170,7 +197,7 @@ module cruiseSpeed:
                         %Cruise Control not managed in OFF state
                         if ?CruiseState = 1 then
                             exit T;
-                        end if;
+                        end if; 
 
                         %Set Cruise Speed to current speed
 
@@ -203,11 +230,41 @@ module cruiseSpeed:
                     end loop
 
                 end trap
-            end if;
-        end loop;
+            end if
+        end loop
     end var
 
 end module
+
+%-----------------------------------------------------------------------------------------------------
+module cruiseRegulation:
+
+%interface declarations
+input CruiseState : integer;
+input Speed: float;
+input Accel : float;
+input CruiseSpeed : float;
+
+output ThrottleCmd :float;
+
+%function call
+function regulateThrottle(boolean,float,float) : float;
+
+var vroom := 0.0f : float in
+    loop
+        pause;
+        if ?CruiseState = 2 then
+            vroom := regulateThrottle(true, ?CruiseSpeed, ?Speed);
+            emit ThrottleCmd(vroom);
+        else
+            emit ThrottleCmd(pre(?Accel));
+        end if;
+            
+    end loop;
+end var
+
+end module
+
 %-----------------------------------------------------------------------------------------------------
 
 %FSM Module

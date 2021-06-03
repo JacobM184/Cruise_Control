@@ -1,7 +1,6 @@
-// #include "CruiseController.h"
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "CruiseController.h"
+
 /*
 DESCRIPTION: Saturate the throttle command to limit the acceleration.
 PARAMETERS: throttleIn - throttle input
