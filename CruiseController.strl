@@ -6,7 +6,7 @@ input Accel1 := 0.0f: float;
 input Brake1 := 0.0f: float;
 
 output accelPressed1;
-output  brakePressed1;
+output brakePressed1;
 
 %Speed Monitor Interface
 input Speed1 := 0.0f :float;
@@ -71,7 +71,6 @@ run cruiseSpeed[
 
 ||
 
-
 run cruiseRegulation[
     signal CruiseState1/CruiseState;
     signal Speed1/Speed;
@@ -92,21 +91,24 @@ module pedal:
 constant pedalsMin = 3.0f        : float;
 
 %Pedal Interface declarations
-input Accel: float;
-input Brake: float;
-input CruiseState : integer;
-input ThrottleCmd : float;
+input Accel         : float;
+input Brake         : float;
+input CruiseState   : integer;
+input ThrottleCmd   : float;
 
 output accelPressed;
 output brakePressed;
-loop
 
+loop
     pause;
     if pre(?CruiseState) = 2 then 
+
         if pre(?ThrottleCmd) > pedalsMin then
             emit accelPressed;
+
         elsif ?Brake > pedalsMin then
             emit brakePressed;
+
         end if;
     else
         if ?Accel > pedalsMin then
@@ -125,10 +127,11 @@ end module
 
 %Speed Monitor Module
 module speedMonitor:
-constant speedMin = 30.0f      : float;
+constant speedMin = 30.0f       : float;
 constant speedMax = 150.0f      : float;
 
-input Speed :float;
+input Speed         :float;
+
 output speedWarning;
 output warningType : integer;
 
@@ -143,7 +146,6 @@ var warning := 0 : integer in
         %Above higher speed threshold
         elsif ?Speed > speedMax then
             warning := 2;
-
         else
             warning := 0;
         end if;
@@ -279,12 +281,12 @@ module FSM:
     input brakePressed;
 
     output CruiseState : integer;
-    emit CruiseState(1);
-    var state := 1 : integer in
 
+    emit CruiseState(1);
+
+    var state := 1 : integer in
         loop
             pause;
-            
                 present
 
                     % case any state to Off
@@ -335,7 +337,6 @@ module FSM:
                         end if
                         
                     end present
-    
         end loop
         end var
 end module
