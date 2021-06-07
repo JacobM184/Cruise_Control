@@ -252,14 +252,21 @@ output ThrottleCmd :float;
 %function call
 function regulateThrottle(boolean,float,float) : float;
 
-var vroom := 0.0f : float in
+var vroom := 0.0f : float, firstTime := 1 : integer in
     loop
         pause;
         if ?CruiseState = 2 then
-            vroom := regulateThrottle(true, ?CruiseSpeed, ?Speed);
-            emit ThrottleCmd(vroom);
+            if firstTime = 1 then
+                vroom := regulateThrottle(true, ?CruiseSpeed, ?Speed);
+                firstTime := 0;
+                emit ThrottleCmd(vroom);
+            else
+                vroom := regulateThrottle(false, ?CruiseSpeed, ?Speed);
+                emit ThrottleCmd(vroom);
+            end if;
         else
             emit ThrottleCmd(?Accel);
+            firstTime := 1;
         end if;
             
     end loop;
