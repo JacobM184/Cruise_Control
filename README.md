@@ -44,7 +44,7 @@ Ensure that the **End of Line Sequence** is set to **LF** for the shell file.
 + ThrottleCmd (float):Throttle command.
 + CruiseState (integer): State of the cruise control. It can be either OFF = 1, ON = 2, STDBY = 3, or DISABLE = 4.
 + SpeedWarning (pure): Indicates whether the vehicle's current speed is outside the speed limit
-+ WarningType (integer) : How the vehicle is speeding. It can be either UNDER = 1, OVER = 2, WITHIN = 3
++ WarningType (integer) : Speed of the vehicle relative to the speed limit. It can be either UNDER = 1, OVER = 2, WITHIN = 3
 
 <br>
 
