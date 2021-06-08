@@ -16,9 +16,13 @@
 1. Unzip the source code.
 2. Open a terminal at the root of the unzipped folder
 3. Run the following command to compile and run the program
-```bash
+```
 bash ./init.sh
 ```
+
+**IMPORTANT**
+
+Ensure that the **End of Line Sequence** is set to **LF** for the shell file.
 
 <br>
 
