@@ -180,61 +180,58 @@ module cruiseSpeed:
     constant speedMax = 150.0f      : float;
     constant SpeedInc = 2.5f        : float;
 
-    var CruiseActive := false : boolean in
-    
-        loop
-            pause;
-            if ?CruiseState = 2 then
-                if ?warningType = 1 then
-                    emit CruiseSpeed(speedMin);
-                elsif ?warningType = 2 then
-                    emit CruiseSpeed(speedMax);
-                else
-                    emit CruiseSpeed(?Speed);
-                end if;
-                trap T in
-                    loop
-                        pause;
+	loop
+		pause;
+		if ?CruiseState = 2 then
+			if ?warningType = 1 then
+				emit CruiseSpeed(speedMin);
+			elsif ?warningType = 2 then
+				emit CruiseSpeed(speedMax);
+			else
+				emit CruiseSpeed(?Speed);
+			end if;
+			trap T in
+				loop
+					pause;
 
-                        %Cruise Control not managed in OFF state
-                        if ?CruiseState = 1 then
-                            exit T;
-                        end if; 
+					%Cruise Control not managed in OFF state
+					if ?CruiseState = 1 then
+						exit T;
+					end if; 
 
-                        %Set Cruise Speed to current speed
+					%Set Cruise Speed to current speed
 
-                        present Set then
-                            if ?warningType = 1 then
-                                emit CruiseSpeed(speedMin);
-                            elsif ?warningType = 2 then
-                                emit CruiseSpeed(speedMax);
-                            else
-                                emit CruiseSpeed(?Speed);
-                            end if;
-                        end present;
+					present Set then
+						if ?warningType = 1 then
+							emit CruiseSpeed(speedMin);
+						elsif ?warningType = 2 then
+							emit CruiseSpeed(speedMax);
+						else
+							emit CruiseSpeed(?Speed);
+						end if;
+					end present;
 
-                        present QuickAccel then
-                            if (pre(?CruiseSpeed) + SpeedInc) > speedMax then
-                                emit CruiseSpeed(speedMax);
-                            else
-                                emit CruiseSpeed(pre(?CruiseSpeed) + SpeedInc);
-                            end if; 
-                        end present;
+					present QuickAccel then
+						if (pre(?CruiseSpeed) + SpeedInc) > speedMax then
+							emit CruiseSpeed(speedMax);
+						else
+							emit CruiseSpeed(pre(?CruiseSpeed) + SpeedInc);
+						end if; 
+					end present;
 
-                        present QuickDecel then
-                            if (pre(?CruiseSpeed) - SpeedInc) < speedMin then
-                                emit CruiseSpeed(speedMin);
-                            else
-                                emit CruiseSpeed(pre(?CruiseSpeed) - SpeedInc);
-                            end if; 
-                        end present;
+					present QuickDecel then
+						if (pre(?CruiseSpeed) - SpeedInc) < speedMin then
+							emit CruiseSpeed(speedMin);
+						else
+							emit CruiseSpeed(pre(?CruiseSpeed) - SpeedInc);
+						end if; 
+					end present;
 
-                    end loop
+				end loop
 
-                end trap
-            end if
-        end loop
-    end var
+			end trap
+		end if
+	end loop
 
 end module
 
